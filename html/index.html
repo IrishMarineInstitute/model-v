@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no">
+    <title>Sea Surface Animation</title>
+
+    <link rel="stylesheet" href="https://js.arcgis.com/3.17/esri/css/esri.css">
+
+    <style>
+      html,body {
+        width:100%;
+        height:100%;
+        margin: 0;
+        padding: 0px 0 0 0;
+      }
+
+      #mapCanvas {
+        padding:0;
+      }
+
+      #credit {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        color: #fff;
+        font-size: 14px;
+      }
+
+      #credit a {
+        color: #08c;
+      }
+      .esriControlsBR{
+        display: none;
+        visibility: hidden;
+      }
+      .hidden{
+        display: none;
+        visibility: hidden;
+      }
+
+    </style>
+
+    <script>
+      var dojoConfig = {
+        paths: {
+          plugins: location.pathname.replace(/\/[^/]+$/, "") + "/plugins"
+        }
+      };
+    </script>
+    <script src="windy.js"></script>
+    <script src="netcdfjs.js"></script>
+    <script src="https://js.arcgis.com/3.17compact/"></script>
+    <script>
+
+    if (!Date.prototype.toISOString2) {
+  (function() {
+
+    function pad(number) {
+      if (number < 10) {
+        return '0' + number;
+      }
+      return number;
+    }
+
+    Date.prototype.toISOString2 = function() {
+      return this.getUTCFullYear() +
+        '-' + pad(this.getUTCMonth() + 1) +
+        '-' + pad(this.getUTCDate()) +
+        'T' + pad(this.getUTCHours()) +
+        ':' + pad(this.getUTCMinutes()) +
+        ':' + pad(this.getUTCSeconds()) +
+        'Z';
+    };
+
+  }());
+}
+    var windlayers = [];
+    function distanceBetween(lat1,lon1,lat2,lon2){
+      var polyline = {
+        "paths":[[[lon1,lat1], [lon2,lat2]]],
+        "spatialReference":{"wkid":102100} //TODO.
+      };
+      polyline = new esri.geometry.Polyline(polyline);
+      polyline = esri.geometry.webMercatorToGeographic(polyline);
+      var answer = esri.geometry.geodesicLengths([polyline], esri.Units.METERS);
+      return answer[0];
+    }
+function flatten(a){
+  return [].concat.apply([], a);
+}
+    function nc2gfs(atime, alat, alon, xvel, yvel){
+      var results = Array();
+      var stride = alat.length * alon.length;
+      for(var itime=0; itime < atime.length; itime++){
+        var time = atime[itime];
+        var date = new Date();
+        date.setTime(time*1000);
+        var u = {
+           header: {
+          "parameterCategory": 2,
+          "parameterNumber": 2,
+          "forecastTime": 0,
+          "refTime" : date.toISOString2(),
+          "nx": alon.length,
+          "ny": alat.length,
+          "la2": alat[0],
+          "lo1": alon[0],
+          "la1": alat[alat.length-1],
+          "lo2": alon[alon.length-1],
+        },
+        "data": Array(),
+        };
+        var v = {
+         "header": {
+          "parameterCategory": 2,
+          "parameterNumber": 3,
+          "forecastTime": 0,
+          "refTime" : date.toISOString2(),
+          "nx": alon.length,
+          "ny": alat.length,
+          "la2": alat[0],
+          "lo1": alon[0],
+          "la1": alat[alat.length-1],
+          "lo2": alon[alon.length-1],
+        },
+          "data":  Array()
+        };
+        for(var ilat=0; ilat < alat.length; ilat++){
+              var slice = itime * (alat.length*alon.length)+ilat*alon.length;
+              v.data.unshift(yvel.slice(slice, slice+alon.length));
+              u.data.unshift(xvel.slice(slice, slice+alon.length));
+        }
+        v.data = flatten(v.data);
+        u.data = flatten(u.data);
+        results.push(u);
+        results.push(v);
+      }
+      for(var i=0;i<results.length;i++){
+        var header = results[i].header;
+        header.dx = Math.abs((header.lo1 - header.lo2)/(header.nx-1));
+        header.dy = Math.abs((header.la1 - header.la2)/(header.ny-1));
+      }
+      return results;
+    }
+
+    var fetchNCGrid = function(metadata,start_date,end_date,params,cb){
+      var N = metadata.attribute.NC_GLOBAL.geospatial_lat_max.value;
+      var S = metadata.attribute.NC_GLOBAL.geospatial_lat_min.value;
+      var E = metadata.attribute.NC_GLOBAL.geospatial_lon_max.value;
+      var W = metadata.attribute.NC_GLOBAL.geospatial_lon_min.value;
+
+      var ux = params.ux;
+      var uy = params.uy;
+      var nullx = metadata.attribute[ux].missing_value.value
+      var nully = metadata.attribute[uy].missing_value.value
+      var lat_stride = params.lat_stride || 1;
+      var lon_stride = params.lon_stride || 1;
+      var time_stride = params.time_stride || 1;
+      var range = "[("+start_date+"):"+time_stride+":("+end_date+")]"
+      +"[("+S+"):"+lat_stride+":("+N+")]"
+      +"[("+W +"):"+lon_stride+":("+E +")]";
+      var url =  params.base_url+"/griddap/"+params.dataset_id+".nc?"+ux+range+","+uy+range;
+      console.log(url);
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", url, true);
+      xhr.responseType = "arraybuffer";
+      xhr.addEventListener("load", function (fn) {
+        if (xhr.status === 200) {
+          var reader = new netcdfjs(xhr.response);
+          var vars = Array();
+          for(var i=0;i< reader.variables.length;i++){
+            vars.push(reader.getDataVariable(reader.variables[i].name));
+          }
+          for(var i=0; i<vars[3].length; i++){
+            if(vars[3][i] == nullx){
+              vars[3][i] = null;
+            }
+          }
+          for(var i=0; i<vars[4].length; i++){
+            if(vars[4][i] == nully){
+              vars[4][i] = null;
+            }
+          }
+          var grid = nc2gfs(vars[0],vars[1],vars[2],vars[3],vars[4]);
+          fn.success(grid);
+        }
+      }.bind(null,cb),false);
+
+      xhr.send();
+    }
+
+    var fetchGriddap = function(params,cb){
+
+        var url = params.base_url+"/info/"+params.dataset_id+"/index.json";
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", url, true);
+        xhr.responseType = "text";
+        xhr.addEventListener("load", function (params,fn) {
+          if (xhr.status === 200) {
+            var response = JSON.parse(xhr.responseText);
+            var obj = {};
+            for(var i=0;i<response.table.rows.length; i++){
+              var row = response.table.rows[i];
+              obj[row[0]] = obj[row[0]] || {};
+              obj[row[0]][row[1]] = obj[row[0]][row[1]] || {};
+              obj[row[0]][row[1]][row[2]] = obj[row[0]][row[1]][row[2]] || {};
+              obj[row[0]][row[1]][row[2]].type = row[3];
+              obj[row[0]][row[1]][row[2]].value = row[4];
+            }
+
+            var start_date = params.start_date;
+            var min_date = obj.attribute.NC_GLOBAL.time_coverage_start.value;
+            var max_date = obj.attribute.NC_GLOBAL.time_coverage_end.value;
+            if(!(start_date) || start_date<min_date){
+              console.log("using",min_date,"rather than",start_date);
+              start_date = min_date;
+            }
+            var tmp = new Date(new Date(max_date).getTime()-24*60*60*1000).toISOString2();
+            if(start_date>max_date){
+              console.log("using",tmp,"rather than",start_date);
+              start_date = tmp;
+            }
+            //TODO improve date hanlding.
+            var end_date = new Date(new Date(start_date).getTime()+24*60*60*1000).toISOString2();
+            fetchNCGrid(obj,start_date,end_date,params,fn);
+          }
+        }.bind(null,params,cb),false);
+
+        xhr.send();
+
+    }
+
+    var griddapRequest = function(params){
+      //TODO: use params
+      this.then = function(success,err){
+        this.success = success;
+        this.err = err;
+      }.bind(this);
+      this.success = function(what){
+        console.log("no sucess");
+      }.bind(this);
+      this.err = function(e){
+        console.log(e);
+      }
+      setTimeout(fetchGriddap.bind(null,params,this),0);
+      return this;
+    };
+    </script>
+    <script>
+    var create_map = function(){
+
+      var map, rasterLayer;
+      var canvasSupport;
+
+      require([
+        "esri/map", "esri/layers/ArcGISTiledMapServiceLayer",
+        "esri/domUtils", "esri/request",
+        "dojo/parser", "dojo/number", "dojo/json", "dojo/dom",
+        "dijit/registry", "plugins/RasterLayer","esri/layers/WebTiledLayer",
+        "esri/config",
+        "dojo/domReady!"
+      ], function(
+        Map, ArcGISTiledMapServiceLayer,
+        domUtils, esriRequest,
+        parser, number, JSON, dom,
+        registry, RasterLayer, WebTiledLayer, esriConfig
+      ){
+        parser.parse();
+        // does the browser support canvas?
+        canvasSupport = supports_canvas();
+
+        map = new Map("mapCanvas", {
+          center: [-9.88, 53.36],
+          zoom: 9,
+          basemap: "dark-gray"
+        });
+
+        map.on("load", mapLoaded);
+
+        function mapLoaded() {
+
+          // Add raster layer
+          if ( canvasSupport ) {
+            rasterLayer = new RasterLayer(null, {
+              opacity: 0.55
+            });
+            map.addLayer(rasterLayer);
+
+            map.on("extent-change", redraw);
+            map.on("resize", function(){});
+            map.on("zoom-start", redraw);
+            map.on("pan-start", redraw);
+
+           var griddaps = [{
+              base_url: 'http://erddap.marine.ie/erddap',
+              dataset_id: 'IMI_CONN_2D',
+              ux: 'barotropic_sea_water_x_velocity',
+              uy: 'barotropic_sea_water_y_velocity',
+              start_date: new Date().toISOString().substring(0,10)+"T00:00:00Z",
+              duration: '1 day',
+              lat_stride: 1,
+              lon_stride: 1
+            },{
+                base_url: 'http://erddap.marine.ie/erddap',
+                dataset_id: 'IMI_NEATL',
+                ux: 'sea_surface_x_velocity',
+                uy: 'sea_surface_y_velocity',
+                start_date: new Date().toISOString().substring(0,10)+"T00:00:00Z",
+                duration: '1 day',
+                lat_stride: 3,
+                lon_stride: 3
+              }];
+              griddaps = [griddaps[0]];
+              griddaps.forEach(function(g){
+                var layersRequest = griddapRequest(g);
+                layersRequest.then(
+                  function(response) {
+                    windlayers.push(new Windy({ canvas: rasterLayer._element, data: response, is_water: true }));
+                    redraw();
+                }, function(error) {
+                    console.log("Error: ", error.message);
+                });
+              });
+
+          } else {
+            dom.byId("mapCanvas").innerHTML = "This browser doesn't support canvas. Visit <a target='_blank' href='http://www.caniuse.com/#search=canvas'>caniuse.com</a> for supported browsers";
+          }
+        }
+
+        // does the browser support canvas?
+        function supports_canvas() {
+          return !!document.createElement("canvas").getContext;
+        }
+
+        function redraw(){
+
+          rasterLayer._element.width = map.width;
+          rasterLayer._element.height = map.height;
+          windlayers.forEach(function(windy){
+            windy.stop();
+          });
+
+          var extent = map.geographicExtent;
+          windlayers.forEach(function(layer){
+            setTimeout(function(windy){
+              windy.start(
+                [[0,0],[map.width, map.height]],
+                map.width,
+                map.height,
+                [[extent.xmin, extent.ymin],[extent.xmax, extent.ymax]]
+              );
+            }.bind(null,layer),500);
+          });
+        }
+      });
+    };
+      var phantom_wait_for_netcdfjs = function(callback){
+        if(typeof netcdfjs === 'undefined' && typeof window.netcdfjs === 'undefined'){
+             console.log("netcdfjs not loaded yet...");
+             setTimeout(phantom_wait_for_netcdfjs.bind(null,callback),1000);
+        }else{
+          callback();
+        }
+      }
+      document.addEventListener("DOMContentLoaded", function(event) {
+        phantom_wait_for_netcdfjs(create_map);
+      });
+    </script>
+  </head>
+
+  <body class="">
+     <div id="mapCanvas" style="height:100%;">
+     </div>
+     <div id="credit" class="hidden">Inspired by <a href="https://github.com/cambecc/earth">Earth</a>, data from <a href="http://nomads.ncdc.noaa.gov/data.php?name=access#hires_weather_datasets">GFS</a>, open source on <a href="https://github.com/Esri/wind-js">Github</a></div>
+  <script>
+  setTimeout(function(){
+    return;
+  var script = document.createElement('script');
+script.src = 'https://rawgit.com/spite/ccapture.js/master/build/CCapture.all.min.js';
+script.addEventListener('load', function () {
+  // Create a capturer that exports a WebM video.
+  window.capturer = new window.CCapture({format: 'jpg', framerate: 30, timeLimit: 60});
+  window.capturer.start();
+});
+document.head.appendChild(script);
+},10000);
+  </script>
+  </body>
+
+</html>
