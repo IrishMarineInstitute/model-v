@@ -3,9 +3,17 @@
 // ffmpeg -y -c:v png -f image2 -s 800x600 -start_number 1 -i /tmp/img%04d -r 30 -c:v libx264 -pix_fmt yuv420p -movflags +faststart output.mp4
 
 //var netcdfjs = require('netcdfjs');
+var system = require('system');
+var args = system.args;
+args.shift();
+var tmpdir = "/tmp"
+if(args.length){
+  tmpdir = args[0];
+  args.shift(); 
+}
 var webPage = require('webpage');
 var page = webPage.create();
-var address = 'http://spiddal.marine.ie/tomasz/', //'http://127.0.0.1/',
+var address = 'http://127.0.0.1/model-v/',
     duration = 52, // duration of the video, in seconds
     framerate = 30, // number of frames per second. 24 is a good value.
     counter = 0,
@@ -26,15 +34,22 @@ page.onError = function(msg, trace) {
   console.error(msgStack.join('\n'));
   phantom.exit(1);
 };
+var printProgress = function(progress){
+    system.stdout.clearLine();
+    system.stdout.cursorTo(0);
+    system.stdout.write(progress+'%');
+}
 
 var capture = function(){
       page.clipRect = { top: 0, left: 0, width: width, height: height };
       counter++;
       var fname = "00000000000000"+counter;
-      fname = "img"+fname.substring(fname.length-4);
+      fname = "img"+fname.substring(fname.length-7);
       //console.log("frame "+counter+"/"+(duration * framerate));
-      page.render('/tmp/'+fname, { format: 'png' });
+      page.render(tmpdir+'/'+fname, { format: 'png' });
+      printProgress(~~(counter/(duration*framerate)));
       if (counter > duration * framerate) {
+          console.log("\ndone recording frames");
           phantom.exit();
       }
       return false;

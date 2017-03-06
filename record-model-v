@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+MYTMPDIR=`mktemp -d`
+trap "rm -rf $MYTMPDIR" EXIT
+cd /usr/src/app
+phantomjs record-model-v.js $MYTMPDIR $@
+ffmpeg -y -c:v png -f image2 -s 800x600 -start_number 61 -i /$MYTMPDIR/img%07d -r 30 -c:v libx264 -pix_fmt yuv420p -movflags +faststart $MYTMPDIR/recording.mp4
+mv $MYTMPDIR/recording.mp4 /var/www/html/

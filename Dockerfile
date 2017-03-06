@@ -72,14 +72,24 @@ RUN cd aacgain && ./configure
 RUN cd aacgain && make -j 8 && make install
 
 RUN npm install -g phantomjs-prebuilt
+RUN apt-get install -y nginx
+RUN echo "\ndaemon off;" >> /etc/nginx/nginx.conf && \
+  chown -R www-data:www-data /var/lib/nginx
 
-WORKDIR /usr/src/app
-RUN npm install connect serve-static
-RUN mkdir /output
-COPY index.js /usr/src/app/
-COPY runner.js /usr/src/app/
-COPY package.json /usr/src/app/
-COPY html /usr/src/app/html
+# Define mountable directories.
+VOLUME ["/etc/nginx/sites-enabled", "/etc/nginx/certs", "/etc/nginx/conf.d", "/var/log/nginx", "/var/www/html"]
+
+
+COPY record-model-v.js /usr/src/app/
+COPY record-model-v /usr/local/bin
+RUN mkdir -p /var/www/html
+COPY html /var/www/html/
+
+EXPOSE 80
+EXPOSE 443
+
+WORKDIR /etc/nginx
+CMD ["nginx"]
 
 # RUN rm -rf /usr/local/src
 
