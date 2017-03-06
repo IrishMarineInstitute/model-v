@@ -6,10 +6,17 @@ trap "rm -rf $MYTMPDIR" EXIT
 cd /usr/src/app
 MODEL=${1:-connemara}
 shift||true
+WIDTH=${1:-1280}
+shift||true
+HEIGHT=${1:-720}
+shift||true
 
-phantomjs record-model-v.js $MYTMPDIR $MODEL $@
-ffmpeg -y -c:v png -f image2 -s 800x600 -start_number 61 -i /$MYTMPDIR/img%07d -r 30 -c:v libx264 -pix_fmt yuv420p -movflags +faststart $MYTMPDIR/recording.mp4
+phantomjs record-model-v.js $MYTMPDIR $MODEL $WIDTH $HEIGHT $@
+ffmpeg -y -c:v png -f image2 -s ${WIDTH}x${HEIGHT} -start_number 61 -i /$MYTMPDIR/img%07d -r 30 -c:v libx264 -pix_fmt yuv420p -movflags +faststart $MYTMPDIR/recording.mp4
 mkdir -p /var/www/html/model-v/$MODEL
 TARGET="${MODEL}-`date +%Y-%m-%d`.mp4"
 mv $MYTMPDIR/recording.mp4 /var/www/html/model-v/$MODEL/$TARGET
 ln -s -f /var/www/html/model-v/$MODEL/$TARGET /var/www/html/model-v/$MODEL/latest.mp4
+cp /$MYTMPDIR/img0000061 /var/www/html/model-v/$MODEL/poster.png
+# keep only the latest 7 videos
+ls -t /var/www/html/model-v/$MODEL/${MODEL}-*.mp4 | tail -n +8 | xargs -I {} rm "{}"

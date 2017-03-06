@@ -6,9 +6,24 @@
 var system = require('system');
 var args = system.args;
 args.shift();
-var tmpdir = "/tmp"
+var tmpdir = "/tmp";
 if(args.length){
   tmpdir = args[0];
+  args.shift(); 
+}
+var model = "connemara";
+if(args.length){
+  model = args[0];
+  args.shift(); 
+}
+var width = 1280;
+if(args.length){
+  width = parseInt(args[0]);
+  args.shift(); 
+}
+var height = 720;
+if(args.length){
+  height = parseInt(args[0]);
   args.shift(); 
 }
 var webPage = require('webpage');
@@ -16,9 +31,7 @@ var page = webPage.create();
 var address = 'http://127.0.0.1/model-v/',
     duration = 52, // duration of the video, in seconds
     framerate = 30, // number of frames per second. 24 is a good value.
-    counter = 0,
-    width = 800,
-    height = 600;
+    counter = 0;
 
 page.onConsoleMessage = function(msg, lineNum, sourceId) {
   //console.log('CONSOLE: ' + msg + ' (from line #' + lineNum + ' in "' + sourceId + '")');

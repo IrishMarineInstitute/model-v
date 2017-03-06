@@ -1,0 +1,2 @@
+14 1 * * * docker exec -i -t model-v record-model-v connemara 1280 900
+15 9 * * * docker exec -i -t model-v record-model-v connemara 1280 900
