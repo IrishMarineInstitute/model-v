@@ -4,9 +4,14 @@ Create a video file (MP4) using modelled data served from Erddap
 # Build it like this
 `docker build -t model-v .`
 
-# Run it like this
-`docker run -i -t --rm -v $(pwd)/output:/output model-v`
+# start the webserver like this
+`docker run -d -p 8080:80 --name=model-v model-v`
 
-Nothing happens for a long time then the process will finish and the video will be in the output folder
+# Update the video
+Updating the video takes several minutes, and can be done like this:
+`docker exec -i -t model-v record-model-v`
 
-There are lots of credits to be added here, but now it is the weekend....
+Video should appear in localhost:8080/model-v/connemara/
+
+
+There are lots of credits to be added here...

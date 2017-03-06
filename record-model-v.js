@@ -35,9 +35,6 @@ page.onError = function(msg, trace) {
   phantom.exit(1);
 };
 var printProgress = function(progress){
-    system.stdout.clearLine();
-    system.stdout.cursorTo(0);
-    system.stdout.write(progress+'%');
 }
 
 var capture = function(){
@@ -47,7 +44,8 @@ var capture = function(){
       fname = "img"+fname.substring(fname.length-7);
       //console.log("frame "+counter+"/"+(duration * framerate));
       page.render(tmpdir+'/'+fname, { format: 'png' });
-      printProgress(~~(counter/(duration*framerate)));
+      var progress = Math.floor(counter/(duration*framerate)*100);
+      system.stdout.write("\r"+progress+'%');
       if (counter > duration * framerate) {
           console.log("\ndone recording frames");
           phantom.exit();
