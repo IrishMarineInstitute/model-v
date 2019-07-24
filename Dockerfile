@@ -1,7 +1,5 @@
 FROM nodesource/xenial
 
-MAINTAINER Joshua Gardner mellowcellofellow@gmail.com
-
 # Set Locale
 
 RUN locale-gen en_US.UTF-8  
@@ -24,6 +22,13 @@ RUN git clone --depth 1 https://github.com/l-smash/l-smash
 RUN cd l-smash && ./configure
 RUN cd l-smash && make -j $(nproc)
 RUN cd l-smash && make install
+
+RUN wget http://www.nasm.us/pub/nasm/releasebuilds/2.13.01/nasm-2.13.01.tar.bz2
+RUN tar xjvf nasm-2.13.01.tar.bz2
+RUN cd nasm-2.13.01 && ./autogen.sh
+RUN cd nasm-2.13.01 && ./configure
+RUN cd nasm-2.13.01 && make
+RUN cd nasm-2.13.01 && make install
 
 RUN git clone --depth 1 http://git.videolan.org/git/x264.git
 RUN cd x264 && ./configure --enable-static
@@ -59,17 +64,12 @@ RUN cd ffmpeg && \
                 --enable-libfdk-aac --enable-libmp3lame \
                 --enable-libopus --enable-libtheora --enable-libvorbis \
                 --enable-libvpx --enable-libx264 --enable-libx265 \
-                --enable-nonfree --enable-openssl 
+                --enable-nonfree --enable-openssl --pkg-config-flags="--static"
 RUN cd ffmpeg && make -j 8
 RUN cd ffmpeg && make install
 
-RUN git clone --depth 1 https://github.com/mulx/aacgain.git
-RUN cd aacgain/mp4v2 && ./configure
-RUN cd aacgain/mp4v2 && make -k -j 8
-RUN cd aacgain/faad2 && ./configure
-RUN cd aacgain/faad2 && make -k -j 8
-RUN cd aacgain && ./configure
-RUN cd aacgain && make -j 8 && make install
+RUN git clone --depth 1 https://github.com/dgilman/aacgain.git
+RUN cd aacgain && ./build.sh
 
 RUN npm install -g phantomjs-prebuilt
 RUN apt-get update && apt-get install -y nginx
