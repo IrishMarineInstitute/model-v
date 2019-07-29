@@ -116,7 +116,8 @@
                       griddap.ux,griddap.uy)
                     .fetchGrib2().then(function(data){
                       var pct = (100*(ntimes-times.length)/ntimes) + '%';
-                      document.getElementById("loadingprogress").style.width = pct; 
+                      document.getElementById("loadingprogress").style.width = pct;
+                      console.log(pct);
                       if(times.length){
                         results.push.apply(results,data);
                         getVelocityAndResolve(results);
@@ -203,6 +204,7 @@
             }];
         var hash = window.location.hash.substr(1);
         var griddap = griddaps.find((x)=> x.id == hash) || griddaps[0];
+        console.log("using griddap "+griddap.id);
         var create_image = function(){
           // not using an ESRI map here.
            loadImage(griddap.imageUrl).then(
