@@ -33,19 +33,18 @@ Date.prototype.toISOString2 = function() {
 }
 
 var Windy = function( params ){
-  var VELOCITY_SCALE = .011;             // scale for wind velocity (completely arbitrary--this value looks nice)
-  var INTENSITY_SCALE_STEP = 0.05;            // step size of particle intensity color scale
-  var MAX_WIND_INTENSITY = .75;              // wind velocity at which particle intensity is maximum (m/s)
-  var MAX_PARTICLE_AGE = 100;                // max number of frames a particle is drawn before regeneration
+  var VELOCITY_SCALE = params.velocityScale || 0.011;             // scale for wind velocity (completely arbitrary--this value looks nice)
+  var MAX_WIND_INTENSITY = params.is_water ? 0.75 : 0.75;              // wind velocity at which particle intensity is maximum (m/s)
+  var INTENSITY_SCALE_STEP = MAX_WIND_INTENSITY/254;            // step size of particle intensity color scale
+  var MAX_PARTICLE_AGE = 16; //100;                // max number of frames a particle is drawn before regeneration
   var PARTICLE_LINE_WIDTH = 1;              // line width of a drawn particle
-  var PARTICLE_MULTIPLIER = 1/400;              // particle count scalar (completely arbitrary--this values looks nice)
+  var PARTICLE_MULTIPLIER = 1/100; //1/400;              // particle count scalar (completely arbitrary--this values looks nice)
   var PARTICLE_REDUCTION = 0.75;            // reduce particle count to this much of normal for mobile devices
   var FRAME_RATE = 20;                      // desired milliseconds per frame
   var TIMELAPSE_FRAMES = 1440;
   var TIMELAPSE_STEP = 1;
   var TIMELAPSE_LEAD_FRAMES = 60;
   var TIMELAPSE_TRAIL_FRAMES = 60;
-  var BOUNDARY = 0.45;
 
   var NULL_WIND_VECTOR = [NaN, NaN, null];  // singleton for no wind in the form: [u, v, magnitude]
   var TRANSPARENT_BLACK = [255, 0, 0, 0];
@@ -284,7 +283,7 @@ var Windy = function( params ){
     return ang / (Math.PI/180.0);
   };
 
-  var invert = function(x, y, windy){
+  var invert = params.invert || function(x, y, windy){
     var mapLonDelta = windy.east - windy.west;
     var worldMapRadius = windy.width / rad2deg(mapLonDelta) * 360/(2 * Math.PI);
     var mapOffsetY = ( worldMapRadius / 2 * Math.log( (1 + Math.sin(windy.south) ) / (1 - Math.sin(windy.south))  ));
@@ -300,16 +299,15 @@ var Windy = function( params ){
     return Math.log( Math.tan( lat / 2 + Math.PI / 4 ) );
   };
 
-
-  var project = function( lat, lon, windy) { // both in radians, use deg2rad if neccessary
+  var project = params.project || function( lat, lon, windy) { // both in radians, use deg2rad if neccessary
     var ymin = mercY(windy.south);
     var ymax = mercY(windy.north);
     var xFactor = windy.width / ( windy.east - windy.west );
     var yFactor = windy.height / ( ymax - ymin );
 
-    var y = mercY( deg2rad(lat) );
+    var mercy = mercY( deg2rad(lat) );
     var x = (deg2rad(lon) - windy.west) * xFactor;
-    var y = (ymax - y) * yFactor; // y points south
+    var y = (ymax - mercy) * yFactor; // y points south
     return [x, y];
   };
 
@@ -371,37 +369,264 @@ var Windy = function( params ){
     function cutHex(h) {return (h.charAt(0)=="#") ? h.substring(1,7):h}
 
     function windIntensityColorScale(step, maxWind) {
-
+var alpha = 0.5;
         var result = [
-          /* blue to red
-          "rgba(" + hexToR('#178be7') + ", " + hexToG('#178be7') + ", " + hexToB('#178be7') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#8888bd') + ", " + hexToG('#8888bd') + ", " + hexToB('#8888bd') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#b28499') + ", " + hexToG('#b28499') + ", " + hexToB('#b28499') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#cc7e78') + ", " + hexToG('#cc7e78') + ", " + hexToB('#cc7e78') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#de765b') + ", " + hexToG('#de765b') + ", " + hexToB('#de765b') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#ec6c42') + ", " + hexToG('#ec6c42') + ", " + hexToB('#ec6c42') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#f55f2c') + ", " + hexToG('#f55f2c') + ", " + hexToB('#f55f2c') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#fb4f17') + ", " + hexToG('#fb4f17') + ", " + hexToB('#fb4f17') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#fe3705') + ", " + hexToG('#fe3705') + ", " + hexToB('#fe3705') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#ff0000') + ", " + hexToG('#ff0000') + ", " + hexToB('#ff0000') + ", " + 0.5 + ")"
-          */
-          "rgba(" + hexToR('#00ffff') + ", " + hexToG('#00ffff') + ", " + hexToB('#00ffff') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#64f0ff') + ", " + hexToG('#64f0ff') + ", " + hexToB('#64f0ff') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#87e1ff') + ", " + hexToG('#87e1ff') + ", " + hexToB('#87e1ff') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#a0d0ff') + ", " + hexToG('#a0d0ff') + ", " + hexToB('#a0d0ff') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#b5c0ff') + ", " + hexToG('#b5c0ff') + ", " + hexToB('#b5c0ff') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#c6adff') + ", " + hexToG('#c6adff') + ", " + hexToB('#c6adff') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#d49bff') + ", " + hexToG('#d49bff') + ", " + hexToB('#d49bff') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#e185ff') + ", " + hexToG('#e185ff') + ", " + hexToB('#e185ff') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#ec6dff') + ", " + hexToG('#ec6dff') + ", " + hexToB('#ec6dff') + ", " + 0.5 + ")",
-          "rgba(" + hexToR('#ff1edb') + ", " + hexToG('#ff1edb') + ", " + hexToB('#ff1edb') + ", " + 0.5 + ")"
+"rgba(255, 253, 205, " + alpha + ")",
+"rgba(254, 252, 203, " + alpha + ")",
+"rgba(254, 250, 201, " + alpha + ")",
+"rgba(253, 249, 199, " + alpha + ")",
+"rgba(252, 248, 197, " + alpha + ")",
+"rgba(252, 247, 194, " + alpha + ")",
+"rgba(251, 246, 192, " + alpha + ")",
+"rgba(250, 244, 190, " + alpha + ")",
+"rgba(249, 243, 188, " + alpha + ")",
+"rgba(249, 242, 186, " + alpha + ")",
+"rgba(248, 241, 184, " + alpha + ")",
+"rgba(247, 240, 182, " + alpha + ")",
+"rgba(247, 238, 180, " + alpha + ")",
+"rgba(246, 237, 177, " + alpha + ")",
+"rgba(246, 236, 175, " + alpha + ")",
+"rgba(245, 235, 173, " + alpha + ")",
+"rgba(244, 234, 171, " + alpha + ")",
+"rgba(243, 233, 169, " + alpha + ")",
+"rgba(243, 231, 167, " + alpha + ")",
+"rgba(242, 230, 165, " + alpha + ")",
+"rgba(241, 229, 162, " + alpha + ")",
+"rgba(241, 228, 160, " + alpha + ")",
+"rgba(240, 227, 158, " + alpha + ")",
+"rgba(239, 226, 156, " + alpha + ")",
+"rgba(239, 225, 154, " + alpha + ")",
+"rgba(238, 223, 152, " + alpha + ")",
+"rgba(237, 222, 150, " + alpha + ")",
+"rgba(237, 221, 147, " + alpha + ")",
+"rgba(236, 220, 145, " + alpha + ")",
+"rgba(235, 219, 143, " + alpha + ")",
+"rgba(234, 218, 141, " + alpha + ")",
+"rgba(234, 217, 139, " + alpha + ")",
+"rgba(233, 216, 137, " + alpha + ")",
+"rgba(232, 215, 134, " + alpha + ")",
+"rgba(231, 214, 132, " + alpha + ")",
+"rgba(231, 213, 130, " + alpha + ")",
+"rgba(230, 212, 128, " + alpha + ")",
+"rgba(229, 211, 126, " + alpha + ")",
+"rgba(228, 210, 123, " + alpha + ")",
+"rgba(227, 208, 121, " + alpha + ")",
+"rgba(227, 207, 119, " + alpha + ")",
+"rgba(226, 206, 117, " + alpha + ")",
+"rgba(225, 205, 115, " + alpha + ")",
+"rgba(224, 205, 113, " + alpha + ")",
+"rgba(223, 204, 110, " + alpha + ")",
+"rgba(222, 203, 108, " + alpha + ")",
+"rgba(221, 202, 106, " + alpha + ")",
+"rgba(220, 201, 104, " + alpha + ")",
+"rgba(219, 200, 102, " + alpha + ")",
+"rgba(218, 199, 100, " + alpha + ")",
+"rgba(217, 198, 97, " + alpha + ")",
+"rgba(216, 197, 95, " + alpha + ")",
+"rgba(215, 196, 93, " + alpha + ")",
+"rgba(214, 195, 91, " + alpha + ")",
+"rgba(213, 194, 89, " + alpha + ")",
+"rgba(212, 193, 87, " + alpha + ")",
+"rgba(211, 193, 85, " + alpha + ")",
+"rgba(210, 192, 83, " + alpha + ")",
+"rgba(209, 191, 81, " + alpha + ")",
+"rgba(208, 190, 79, " + alpha + ")",
+"rgba(206, 189, 76, " + alpha + ")",
+"rgba(205, 189, 74, " + alpha + ")",
+"rgba(204, 188, 72, " + alpha + ")",
+"rgba(203, 187, 70, " + alpha + ")",
+"rgba(201, 186, 69, " + alpha + ")",
+"rgba(200, 185, 67, " + alpha + ")",
+"rgba(199, 185, 65, " + alpha + ")",
+"rgba(197, 184, 63, " + alpha + ")",
+"rgba(196, 183, 61, " + alpha + ")",
+"rgba(195, 183, 59, " + alpha + ")",
+"rgba(193, 182, 57, " + alpha + ")",
+"rgba(192, 181, 55, " + alpha + ")",
+"rgba(190, 180, 54, " + alpha + ")",
+"rgba(189, 180, 52, " + alpha + ")",
+"rgba(187, 179, 50, " + alpha + ")",
+"rgba(186, 178, 48, " + alpha + ")",
+"rgba(184, 178, 47, " + alpha + ")",
+"rgba(183, 177, 45, " + alpha + ")",
+"rgba(181, 176, 43, " + alpha + ")",
+"rgba(180, 176, 42, " + alpha + ")",
+"rgba(178, 175, 40, " + alpha + ")",
+"rgba(177, 174, 39, " + alpha + ")",
+"rgba(175, 174, 37, " + alpha + ")",
+"rgba(173, 173, 35, " + alpha + ")",
+"rgba(172, 173, 34, " + alpha + ")",
+"rgba(170, 172, 32, " + alpha + ")",
+"rgba(169, 171, 31, " + alpha + ")",
+"rgba(167, 171, 30, " + alpha + ")",
+"rgba(165, 170, 28, " + alpha + ")",
+"rgba(164, 169, 27, " + alpha + ")",
+"rgba(162, 169, 25, " + alpha + ")",
+"rgba(160, 168, 24, " + alpha + ")",
+"rgba(159, 168, 23, " + alpha + ")",
+"rgba(157, 167, 21, " + alpha + ")",
+"rgba(155, 166, 20, " + alpha + ")",
+"rgba(154, 166, 19, " + alpha + ")",
+"rgba(152, 165, 18, " + alpha + ")",
+"rgba(150, 165, 16, " + alpha + ")",
+"rgba(149, 164, 15, " + alpha + ")",
+"rgba(147, 163, 14, " + alpha + ")",
+"rgba(145, 163, 13, " + alpha + ")",
+"rgba(143, 162, 12, " + alpha + ")",
+"rgba(142, 162, 11, " + alpha + ")",
+"rgba(140, 161, 10, " + alpha + ")",
+"rgba(138, 160, 9, " + alpha + ")",
+"rgba(136, 160, 8, " + alpha + ")",
+"rgba(135, 159, 8, " + alpha + ")",
+"rgba(133, 159, 7, " + alpha + ")",
+"rgba(131, 158, 7, " + alpha + ")",
+"rgba(129, 157, 6, " + alpha + ")",
+"rgba(128, 157, 6, " + alpha + ")",
+"rgba(126, 156, 6, " + alpha + ")",
+"rgba(124, 156, 6, " + alpha + ")",
+"rgba(122, 155, 6, " + alpha + ")",
+"rgba(121, 154, 6, " + alpha + ")",
+"rgba(119, 154, 6, " + alpha + ")",
+"rgba(117, 153, 6, " + alpha + ")",
+"rgba(115, 153, 6, " + alpha + ")",
+"rgba(113, 152, 6, " + alpha + ")",
+"rgba(112, 151, 7, " + alpha + ")",
+"rgba(110, 151, 7, " + alpha + ")",
+"rgba(108, 150, 7, " + alpha + ")",
+"rgba(106, 149, 8, " + alpha + ")",
+"rgba(104, 149, 9, " + alpha + ")",
+"rgba(102, 148, 9, " + alpha + ")",
+"rgba(101, 148, 10, " + alpha + ")",
+"rgba(99, 147, 11, " + alpha + ")",
+"rgba(97, 146, 11, " + alpha + ")",
+"rgba(95, 146, 12, " + alpha + ")",
+"rgba(93, 145, 13, " + alpha + ")",
+"rgba(92, 144, 14, " + alpha + ")",
+"rgba(90, 144, 15, " + alpha + ")",
+"rgba(88, 143, 15, " + alpha + ")",
+"rgba(86, 142, 16, " + alpha + ")",
+"rgba(84, 142, 17, " + alpha + ")",
+"rgba(82, 141, 18, " + alpha + ")",
+"rgba(81, 140, 18, " + alpha + ")",
+"rgba(79, 140, 19, " + alpha + ")",
+"rgba(77, 139, 20, " + alpha + ")",
+"rgba(75, 138, 21, " + alpha + ")",
+"rgba(73, 138, 22, " + alpha + ")",
+"rgba(72, 137, 22, " + alpha + ")",
+"rgba(70, 136, 23, " + alpha + ")",
+"rgba(68, 136, 24, " + alpha + ")",
+"rgba(66, 135, 25, " + alpha + ")",
+"rgba(64, 134, 25, " + alpha + ")",
+"rgba(63, 133, 26, " + alpha + ")",
+"rgba(61, 133, 27, " + alpha + ")",
+"rgba(59, 132, 28, " + alpha + ")",
+"rgba(57, 131, 28, " + alpha + ")",
+"rgba(56, 131, 29, " + alpha + ")",
+"rgba(54, 130, 30, " + alpha + ")",
+"rgba(52, 129, 30, " + alpha + ")",
+"rgba(50, 128, 31, " + alpha + ")",
+"rgba(49, 127, 32, " + alpha + ")",
+"rgba(47, 127, 32, " + alpha + ")",
+"rgba(45, 126, 33, " + alpha + ")",
+"rgba(44, 125, 33, " + alpha + ")",
+"rgba(42, 124, 34, " + alpha + ")",
+"rgba(40, 124, 35, " + alpha + ")",
+"rgba(39, 123, 35, " + alpha + ")",
+"rgba(37, 122, 36, " + alpha + ")",
+"rgba(36, 121, 36, " + alpha + ")",
+"rgba(34, 120, 37, " + alpha + ")",
+"rgba(33, 120, 37, " + alpha + ")",
+"rgba(31, 119, 38, " + alpha + ")",
+"rgba(30, 118, 38, " + alpha + ")",
+"rgba(28, 117, 39, " + alpha + ")",
+"rgba(27, 116, 39, " + alpha + ")",
+"rgba(26, 115, 39, " + alpha + ")",
+"rgba(24, 115, 40, " + alpha + ")",
+"rgba(23, 114, 40, " + alpha + ")",
+"rgba(22, 113, 41, " + alpha + ")",
+"rgba(21, 112, 41, " + alpha + ")",
+"rgba(19, 111, 41, " + alpha + ")",
+"rgba(18, 110, 42, " + alpha + ")",
+"rgba(17, 109, 42, " + alpha + ")",
+"rgba(16, 108, 42, " + alpha + ")",
+"rgba(15, 108, 43, " + alpha + ")",
+"rgba(15, 107, 43, " + alpha + ")",
+"rgba(14, 106, 43, " + alpha + ")",
+"rgba(13, 105, 43, " + alpha + ")",
+"rgba(13, 104, 43, " + alpha + ")",
+"rgba(12, 103, 44, " + alpha + ")",
+"rgba(12, 102, 44, " + alpha + ")",
+"rgba(11, 101, 44, " + alpha + ")",
+"rgba(11, 100, 44, " + alpha + ")",
+"rgba(11, 99, 44, " + alpha + ")",
+"rgba(11, 98, 45, " + alpha + ")",
+"rgba(11, 97, 45, " + alpha + ")",
+"rgba(11, 96, 45, " + alpha + ")",
+"rgba(11, 95, 45, " + alpha + ")",
+"rgba(11, 94, 45, " + alpha + ")",
+"rgba(12, 93, 45, " + alpha + ")",
+"rgba(12, 92, 45, " + alpha + ")",
+"rgba(12, 91, 45, " + alpha + ")",
+"rgba(13, 90, 45, " + alpha + ")",
+"rgba(13, 89, 45, " + alpha + ")",
+"rgba(14, 88, 45, " + alpha + ")",
+"rgba(14, 87, 45, " + alpha + ")",
+"rgba(15, 86, 44, " + alpha + ")",
+"rgba(15, 85, 44, " + alpha + ")",
+"rgba(16, 84, 44, " + alpha + ")",
+"rgba(16, 83, 44, " + alpha + ")",
+"rgba(17, 82, 44, " + alpha + ")",
+"rgba(17, 81, 44, " + alpha + ")",
+"rgba(18, 80, 43, " + alpha + ")",
+"rgba(18, 79, 43, " + alpha + ")",
+"rgba(19, 78, 43, " + alpha + ")",
+"rgba(19, 77, 43, " + alpha + ")",
+"rgba(20, 76, 42, " + alpha + ")",
+"rgba(20, 75, 42, " + alpha + ")",
+"rgba(20, 74, 42, " + alpha + ")",
+"rgba(21, 73, 42, " + alpha + ")",
+"rgba(21, 72, 41, " + alpha + ")",
+"rgba(22, 71, 41, " + alpha + ")",
+"rgba(22, 70, 41, " + alpha + ")",
+"rgba(22, 69, 40, " + alpha + ")",
+"rgba(23, 68, 40, " + alpha + ")",
+"rgba(23, 67, 39, " + alpha + ")",
+"rgba(23, 66, 39, " + alpha + ")",
+"rgba(23, 65, 39, " + alpha + ")",
+"rgba(24, 64, 38, " + alpha + ")",
+"rgba(24, 63, 38, " + alpha + ")",
+"rgba(24, 63, 37, " + alpha + ")",
+"rgba(24, 62, 37, " + alpha + ")",
+"rgba(25, 61, 36, " + alpha + ")",
+"rgba(25, 60, 36, " + alpha + ")",
+"rgba(25, 59, 35, " + alpha + ")",
+"rgba(25, 58, 35, " + alpha + ")",
+"rgba(25, 57, 34, " + alpha + ")",
+"rgba(25, 56, 34, " + alpha + ")",
+"rgba(25, 55, 33, " + alpha + ")",
+"rgba(25, 54, 33, " + alpha + ")",
+"rgba(25, 53, 32, " + alpha + ")",
+"rgba(25, 52, 31, " + alpha + ")",
+"rgba(25, 51, 31, " + alpha + ")",
+"rgba(25, 50, 30, " + alpha + ")",
+"rgba(25, 49, 30, " + alpha + ")",
+"rgba(25, 48, 29, " + alpha + ")",
+"rgba(25, 47, 28, " + alpha + ")",
+"rgba(25, 46, 28, " + alpha + ")",
+"rgba(25, 45, 27, " + alpha + ")",
+"rgba(25, 44, 26, " + alpha + ")",
+"rgba(25, 44, 25, " + alpha + ")",
+"rgba(25, 43, 25, " + alpha + ")",
+"rgba(25, 42, 24, " + alpha + ")",
+"rgba(24, 41, 23, " + alpha + ")",
+"rgba(24, 40, 23, " + alpha + ")",
+"rgba(24, 39, 22, " + alpha + ")",
+"rgba(24, 38, 21, " + alpha + ")",
+"rgba(24, 37, 20, " + alpha + ")",
+"rgba(23, 36, 19, " + alpha + ")",
+"rgba(23, 35, 19, " + alpha + ")"
+
         ]
-        /*
-        var result = [];
-        for (var j = 225; j >= 100; j = j - step) {
-          result.push(asColorStyle(j, j, j, 1));
-        }
-        */
         result.indexFor = function(m) {  // map wind speed to a style
             return Math.floor(Math.min(m, maxWind) / maxWind * (result.length - 1));
         };
@@ -421,7 +646,9 @@ var Windy = function( params ){
       particleCount *= PARTICLE_REDUCTION;
     }
 
-    var fadeFillStyle = "rgba(0, 0, 0, 0.97)";
+    //var fadeFillStyle = "rgba(0, 0, 0, 0.97)";
+    var fadeFillStyle = "rgba(0, 0, 0, 0.9)";
+    var paintFillStyle = "rgba(0, 0, 0, 1.0)";
 
     var particles = [];
     for (var i = 0; i < particleCount; i++) {
@@ -477,8 +704,10 @@ var Windy = function( params ){
         // Fade existing particle trails.
         var prev = g.globalCompositeOperation;
         g.globalCompositeOperation = "destination-in";
+        //g.fillStyle = fadeFillStyle;
         g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
         g.globalCompositeOperation = prev;
+        //g.fillStyle = paintFillStyle;
 
         // Draw new particle trails.
         buckets.forEach(function(bucket, i) {
