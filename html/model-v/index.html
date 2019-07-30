@@ -169,15 +169,15 @@
               imageUrl: 'img/puffermap4096x2048.jpg',
               projection: d3.geoEquirectangular(),
               base_url: 'https://coastwatch.pfeg.noaa.gov/erddap',
-              dataset_id: 'ncepRtofsG3DForeDaily',
-              ux: 'u',
-              uy: 'v',
+              dataset_id: 'ncepRtofsG2DFore3hrlyProg',
+              ux: 'u_velocity',
+              uy: 'v_velocity',
               velocityScale: 0.8,
               duration: '1 day',
-              constraints: {level: {eq: 0}},
-              lat_stride: 4,
-              lon_stride: 4,
-              max_times: 4
+              //constraints: {level: {eq: 1}},
+              lat_stride: 8,
+              lon_stride: 8,
+              max_times: 2
             },{
               id: 'pufferfish_conn2d',
               type: "image",
