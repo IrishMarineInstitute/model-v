@@ -77,19 +77,7 @@
 
  
     var windlayers = [];
-    function distanceBetween(lat1,lon1,lat2,lon2){
-      var polyline = {
-        "paths":[[[lon1,lat1], [lon2,lat2]]],
-        "spatialReference":{"wkid":102100} //TODO.
-      };
-      polyline = new esri.geometry.Polyline(polyline);
-      polyline = esri.geometry.webMercatorToGeographic(polyline);
-      var answer = esri.geometry.geodesicLengths([polyline], esri.Units.METERS);
-      return answer[0];
-    }
 
-    </script>
-    <script>
       var loadImage = function(src) {
               return new Promise((resolve, reject) => {
               const img = new Image();
@@ -122,8 +110,8 @@
                       var pct = (100*(ntimes-times.length)/ntimes) + '%';
                       document.getElementById("loadingprogress").style.width = pct;
                       console.log(pct);
+                      results.push.apply(results,data);
                       if(times.length){
-                        results.push.apply(results,data);
                         getVelocityAndResolve(results);
                       }else{
                          document.getElementById("progressbar").classList.add("hidden");
@@ -172,7 +160,7 @@
                 lon_stride: 3,
                 center: [-9.32, 53.19],
                 zoom: 7,
-                max_times: 4
+                max_times: 7
               },{
               id: 'pufferfish',
               type: "image",
