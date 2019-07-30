@@ -112,7 +112,11 @@
                   ntimes = times.length;
                   var getVelocityAndResolve = function(results){
                     results = results || [];
-                    ds.constrain({time: times.shift()}).vectors( //bbox: bounds.toBBoxString()
+                    var constraints = Object.assign({}, griddap.constraints || {});
+                    constraints.time = times.shift();
+                    constraints.latitude = constraints.latitude || {stride: griddap.lat_stride || 1};
+                    constraints.longitude = constraints.longitude || {stride: griddap.lon_stride || 1};
+                    ds.constrain(constraints).vectors( //bbox: bounds.toBBoxString()
                       griddap.ux,griddap.uy)
                     .fetchGrib2().then(function(data){
                       var pct = (100*(ntimes-times.length)/ntimes) + '%';
@@ -182,8 +186,9 @@
               uy: 'v',
               velocityScale: 0.8,
               duration: '1 day',
-              lat_stride: 1,
-              lon_stride: 1,
+              constraints: {level: {eq: 0}},
+              lat_stride: 4,
+              lon_stride: 4,
               max_times: 4
             },{
               id: 'pufferfish_conn2d',
