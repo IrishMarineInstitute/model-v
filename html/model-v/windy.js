@@ -194,10 +194,10 @@ var Windy = function( params ){
    * Calculate distortion of the wind vector caused by the shape of the projection at point (x, y). The wind
    * vector is modified in place and returned by this function.
    */
-  var distort = function(projection, λ, φ, x, y, scale, wind, windy) {
+  var distort = function(λ, φ, x, y, scale, wind, extent) {
       var u = wind[0] * scale;
       var v = wind[1] * scale;
-      var d = distortion(projection, λ, φ, x, y, windy);
+      var d = distortion(λ, φ, x, y, extent);
 
       // Scale distortion vectors by u and v, then add.
       wind[0] = d[0] * u + d[2] * v;
@@ -205,14 +205,14 @@ var Windy = function( params ){
       return wind;
   };
 
-  var distortion = function(projection, λ, φ, x, y, windy) {
+  var distortion = function(λ, φ, x, y, extent) {
       var τ = 2 * Math.PI;
       var H = Math.pow(10, -5.2);
       var hλ = λ < 0 ? H : -H;
       var hφ = φ < 0 ? H : -H;
 
-      var pλ = project(φ, λ + hλ,windy);
-      var pφ = project(φ + hφ, λ, windy);
+      var pλ = project(φ, λ + hλ, extent);
+      var pφ = project(φ + hφ, λ, extent);
 
       // Meridian scale factor (see Snyder, equation 4-3), where R = 1. This handles issue where length of 1º λ
       // changes depending on φ. Without this, there is a pinching effect at the poles.
@@ -228,16 +228,27 @@ var Windy = function( params ){
 
 
   var createField = function(columns, bounds, callback) {
+      function wind_fn(grid, p, extent, t){
+        var λ = p[0], φ = p[1], x = p[2], y = p[3];
+        var velocityScale = VELOCITY_SCALE;
+           t = t || 0;
+          var wind = grid.interpolate(λ, φ, t);
+          if (wind) {
+            return distort(λ, φ, x, y, velocityScale, wind, extent);
+          }
+          return NULL_WIND_VECTOR;
+      }
 
       /**
        * @returns {Array} wind vector [u, v, magnitude] at the point (x, y), or [NaN, NaN, null] if wind
        *          is undefined at that point.
        */
-      function field(x, y, t) {
+       var xxxxxx = false;
+      function field(grid, extent,x, y, t) {
           var column = columns[Math.round(x)];
           var iy = Math.round(y);
           if(column && column[iy]){
-            return column[iy](t);
+            return wind_fn(grid, column[iy],extent,t);
           }
           return NULL_WIND_VECTOR;
       }
@@ -248,13 +259,13 @@ var Windy = function( params ){
           columns = [];
       };
 
-      field.randomize = function(o) {  // UNDONE: this method is terrible
+      field.randomize = function(grid,o) {  // UNDONE: this method is terrible
           var x, y;
           var safetyNet = 0;
           do {
               x = Math.round(Math.floor(Math.random() * bounds.width) + bounds.x);
               y = Math.round(Math.floor(Math.random() * bounds.height) + bounds.y)
-          } while (field(x, y)[2] === null && safetyNet++ < 0);
+          } while (field(grid,bounds,x, y)[2] === null && safetyNet++ < 0);
           o.x = x;
           o.y = y;
           return o;
@@ -283,15 +294,15 @@ var Windy = function( params ){
     return ang / (Math.PI/180.0);
   };
 
-  var invert = params.invert || function(x, y, windy){
-    var mapLonDelta = windy.east - windy.west;
-    var worldMapRadius = windy.width / rad2deg(mapLonDelta) * 360/(2 * Math.PI);
-    var mapOffsetY = ( worldMapRadius / 2 * Math.log( (1 + Math.sin(windy.south) ) / (1 - Math.sin(windy.south))  ));
-    var equatorY = windy.height + mapOffsetY;
+  var invert = params.invert || function(x, y, extent){
+    var mapLonDelta = extent.east - extent.west;
+    var worldMapRadius = extent.width / rad2deg(mapLonDelta) * 360/(2 * Math.PI);
+    var mapOffsetY = ( worldMapRadius / 2 * Math.log( (1 + Math.sin(extent.south) ) / (1 - Math.sin(extent.south))  ));
+    var equatorY = extent.height + mapOffsetY;
     var a = (equatorY-y)/worldMapRadius;
 
     var lat = 180/Math.PI * (2 * Math.atan(Math.exp(a)) - Math.PI/2);
-    var lon = rad2deg(windy.west) + x / windy.width * rad2deg(mapLonDelta);
+    var lon = rad2deg(extent.west) + x / extent.width * rad2deg(mapLonDelta);
     return [lon, lat];
   };
 
@@ -299,14 +310,14 @@ var Windy = function( params ){
     return Math.log( Math.tan( lat / 2 + Math.PI / 4 ) );
   };
 
-  var project = params.project || function( lat, lon, windy) { // both in radians, use deg2rad if neccessary
-    var ymin = mercY(windy.south);
-    var ymax = mercY(windy.north);
-    var xFactor = windy.width / ( windy.east - windy.west );
-    var yFactor = windy.height / ( ymax - ymin );
+  var project = params.project || function( lat, lon, extent) { // both in radians, use deg2rad if neccessary
+    var ymin = mercY(extent.south);
+    var ymax = mercY(extent.north);
+    var xFactor = extent.width / ( extent.east - extent.west );
+    var yFactor = extent.height / ( ymax - ymin );
 
     var mercy = mercY( deg2rad(lat) );
-    var x = (deg2rad(lon) - windy.west) * xFactor;
+    var x = (deg2rad(lon) - extent.west) * xFactor;
     var y = (ymax - mercy) * yFactor; // y points south
     return [x, y];
   };
@@ -314,8 +325,6 @@ var Windy = function( params ){
 
   var interpolateField = function( grid, bounds, extent, callback ) {
 
-    var projection = {};
-    var velocityScale = VELOCITY_SCALE;
 
     var columns = [];
     var x = bounds.x;
@@ -326,16 +335,9 @@ var Windy = function( params ){
                 var coord = invert( x, y, extent );
                 if (coord) {
                     var λ = coord[0], φ = coord[1];
+                    var xi = x;
                     if (isFinite(λ)) {
-                       var wind_fn = function(λ, φ, x, y, t){
-                         t = t || 0;
-                         var wind = grid.interpolate(λ, φ, t);
-                         if (wind) {
-                             return distort(projection, λ, φ, x, y, velocityScale, wind, extent);
-                         }
-                         return NULL_WIND_VECTOR;
-                       }.bind(this,λ, φ, x, y);
-                       column[y+1] = column[y] = wind_fn;
+                       column[y+1] = column[y] = [λ, φ, xi, y];
                     }
                 }
         }
@@ -357,7 +359,7 @@ var Windy = function( params ){
   };
 
 
-  var animate = function(bounds, field, start_date, end_date) {
+  var animate = function(grid, bounds, extent, field, start_date, end_date) {
 
     function asColorStyle(r, g, b, a) {
         return "rgba(" + 243 + ", " + 243 + ", " + 238 + ", " + a + ")";
@@ -652,7 +654,7 @@ var alpha = 0.5;
 
     var particles = [];
     for (var i = 0; i < particleCount; i++) {
-        particles.push(field.randomize({age: Math.floor(Math.random() * MAX_PARTICLE_AGE) + 0}));
+        particles.push(field.randomize(grid,{age: Math.floor(Math.random() * MAX_PARTICLE_AGE) + 0}));
     }
 
     function evolve() {
@@ -666,11 +668,11 @@ var alpha = 0.5;
       for(var i=particles.length-1;i>0;i--){
         var particle = particles[i];
         if (particle.age >= MAX_PARTICLE_AGE) {
-          field.randomize(particle).age =  0;
+          field.randomize(grid,particle).age =  0;
         }
         var x = particle.x;
         var y = particle.y;
-        var v = field(x, y, t);  // vector at current position and time
+        var v = field(grid, extent, x, y, t);  // vector at current position and time
         var m = v[2];
         if (m === null) {
           particle.age = MAX_PARTICLE_AGE;  // particle has escaped the grid, never to return...
@@ -678,7 +680,7 @@ var alpha = 0.5;
         else {
           var xt = x + v[0];
           var yt = y + v[1];
-          if (field(xt, yt)[2] !== null) {
+          if (field(grid, extent, xt, yt)[2] !== null) {
 
             // Path from (x,y) to (xt,yt) is visible, so add this particle to the appropriate draw bucket.
             particle.xt = xt;
@@ -765,11 +767,12 @@ var alpha = 0.5;
 
     // build grid
     buildGrid( params.data, function(grid){
+      var extent = mapBounds;
       // interpolateField
-      interpolateField( grid, buildBounds( bounds, width, height), mapBounds, function( bounds, field ){
+      interpolateField( grid, buildBounds( bounds, width, height), extent, function( bounds, field ){
         // animate the canvas with random points
         windy.field = field;
-        animate( bounds, field, grid.start_date, grid.end_date );
+        animate( grid, bounds, extent, field, grid.start_date, grid.end_date );
       });
 
     });

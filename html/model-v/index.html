@@ -104,6 +104,7 @@
                     constraints.time = times.shift();
                     constraints.latitude = constraints.latitude || {stride: griddap.lat_stride || 1};
                     constraints.longitude = constraints.longitude || {stride: griddap.lon_stride || 1};
+                    var withdata = 
                     ds.constrain(constraints).vectors( //bbox: bounds.toBBoxString()
                       griddap.ux,griddap.uy)
                     .fetchGrib2().then(function(data){
@@ -331,7 +332,7 @@
           });
 
           var extent = map.geographicExtent;
-          console.log(extent);
+          //console.log(extent);
           windlayers.forEach(function(layer){
             setTimeout(function(windy){
               windy.start(
