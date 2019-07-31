@@ -264,7 +264,7 @@ var Windy = function( params ){
           var safetyNet = 0;
           do {
               x = Math.round(Math.floor(Math.random() * bounds.width) + bounds.x);
-              y = Math.round(Math.floor(Math.random() * bounds.height) + bounds.y)
+              y = Math.round(Math.floor((params.randomy?params.randomy():Math.random()) * bounds.height) + bounds.y)
           } while (field(grid,bounds,x, y)[2] === null && safetyNet++ < 0);
           o.x = x;
           o.y = y;

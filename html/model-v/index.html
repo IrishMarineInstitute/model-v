@@ -178,7 +178,7 @@
               //constraints: {level: {eq: 1}},
               lat_stride: 8,
               lon_stride: 8,
-              max_times: 2
+              max_times: 8
             },{
               id: 'pufferfish_conn2d',
               type: "image",
@@ -190,6 +190,7 @@
               dataset_id: 'IMI_CONN_2D',
               ux: 'barotropic_sea_water_x_velocity',
               uy: 'barotropic_sea_water_y_velocity',
+              randomy: function(){(Math.acos(2*Math.random()-1))/Math.PI;},
               velocityScale: 0.8,
               duration: '1 day',
               lat_stride: 1,
