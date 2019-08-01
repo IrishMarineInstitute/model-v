@@ -71,18 +71,11 @@ var Windy = function( params ){
 
       return {
           header: uComp[0].header,
-          _data: [],
-          //recipe: recipeFor("wind-" + uComp.header.surface1Value),
-          data: function(i) {
-             if(this._data[i] === undefined){
-               this._data[i] = function(i,t){
+          getData: function(i,t){
                   var p = (t % steps)/steps * (uComp.length-1), p0 = ~~p, p1 = p - p0;
                   var q = p0 == (uComp.length-1)? p0: p0+1;
                   return [uComp[p0].data[i]*(1-p1)+uComp[q].data[i]*(p1), vComp[p0].data[i]*(1-p1)+vComp[q].data[i]*(p1)];
-               }.bind(null,i);
-             }
-             return this._data[i];
-          },
+               },
           interpolate: bilinearInterpolateVector,
           start_date: start_date,
           end_date: end_date
@@ -120,13 +113,13 @@ var Windy = function( params ){
       for (var j = 0; j < nj; j++) {
           var row = [];
           for (var i = 0; i < ni; i++, p++) {
-              row[i] = builder.data(p);
+              row[i] = p;
           }
           if (isContinuous) {
               // For wrapped grids, duplicate first column as last column to simplify interpolation logic
               row.push(row[0]);
           }
-          grid[j] = row;
+          grid[j] = Uint32Array.from(row);
       }
 
       function interpolate(λ, φ, t) {
@@ -137,12 +130,12 @@ var Windy = function( params ){
           var fj = Math.floor(j), cj = fj + 1;
 
           var row;
-          if ((row = grid[fj]) && row[fi] && row[ci]) {
-              var g00 = row[fi](t);
-              var g10 = row[ci](t);
-              if (isValue(g00) && isValue(g10) && ((row = grid[cj])) && row[fi] && row[ci]) {
-                  var g01 = row[fi](t);
-                  var g11 = row[ci](t);
+          if ((row = grid[fj]) && row[fi] !== undefined && row[ci] !== undefined) {
+              var g00 = builder.getData(row[fi],t);
+              var g10 = builder.getData(row[ci],t);
+              if (isValue(g00) && isValue(g10) && ((row = grid[cj])) && row[fi] !== undefined && row[ci] !== undefined) {
+                  var g01 = builder.getData(row[fi],t);
+                  var g11 = builder.getData(row[ci],t);
                   if (isValue(g01) && isValue(g11)) {
                       // All four points found, so interpolate the value.
                       return builder.interpolate(i - fi, j - fj, g00, g10, g01, g11);
@@ -229,12 +222,11 @@ var Windy = function( params ){
 
   var createField = function(columns, bounds, callback) {
       function wind_fn(grid, p, extent, t){
-        var λ = p[0], φ = p[1], x = p[2], y = p[3];
         var velocityScale = VELOCITY_SCALE;
            t = t || 0;
-          var wind = grid.interpolate(λ, φ, t);
+          var wind = grid.interpolate(p[0], p[1], t);
           if (wind) {
-            return distort(λ, φ, x, y, velocityScale, wind, extent);
+            return distort(p[0], p[1], p[2], p[3], velocityScale, wind, extent);
           }
           return NULL_WIND_VECTOR;
       }
@@ -243,7 +235,6 @@ var Windy = function( params ){
        * @returns {Array} wind vector [u, v, magnitude] at the point (x, y), or [NaN, NaN, null] if wind
        *          is undefined at that point.
        */
-       var xxxxxx = false;
       function field(grid, extent,x, y, t) {
           var column = columns[Math.round(x)];
           var iy = Math.round(y);
