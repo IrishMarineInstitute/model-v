@@ -138,6 +138,7 @@
               lat_stride: 1,
               lon_stride: 1,
               center: [-9.32, 53.19],
+              //windGradient: ["rgba(229, 220, 232, 100)"],
               zoom: 10,
              xextent: ()=>new esri.geometry.Extent(-180,-90,180,90, new esri.SpatialReference({ wkid:[4326,4087,3857,4087][3] })),
              xxxbasemap: function(){
@@ -305,9 +306,13 @@
             map.on("zoom-start", redrawesri);
             map.on("pan-start", redrawesri);
             var canvas =  rasterLayer._element;
+            var windOptions = griddap;
+            windOptions.canvas = canvas;
+            windOptions.is_water = (windOptions.is_water === undefined)? true : windOptions.is_water;
 
             loadVelocityData(griddap).then(function(data){
-                windlayers.push(new Windy({ canvas: canvas, data: data, is_water: true }));
+              windOptions.data = data;
+                windlayers.push(new Windy(windOptions));
                 redrawesri();
 
             }).catch(function(error) {

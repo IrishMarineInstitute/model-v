@@ -36,7 +36,7 @@ var Windy = function( params ){
   var VELOCITY_SCALE = params.velocityScale || 0.011;             // scale for wind velocity (completely arbitrary--this value looks nice)
   var MAX_WIND_INTENSITY = params.is_water ? 0.75 : 0.75;              // wind velocity at which particle intensity is maximum (m/s)
   var INTENSITY_SCALE_STEP = MAX_WIND_INTENSITY/254;            // step size of particle intensity color scale
-  var MAX_PARTICLE_AGE = 16; //100;                // max number of frames a particle is drawn before regeneration
+  var MAX_PARTICLE_AGE = params.max_particle_age || 60; //100;                // max number of frames a particle is drawn before regeneration
   var PARTICLE_LINE_WIDTH = 1;              // line width of a drawn particle
   var PARTICLE_MULTIPLIER = 1/100; //1/400;              // particle count scalar (completely arbitrary--this values looks nice)
   var PARTICLE_REDUCTION = 0.75;            // reduce particle count to this much of normal for mobile devices
@@ -221,12 +221,12 @@ var Windy = function( params ){
 
 
   var createField = function(columns, bounds, callback) {
-      function wind_fn(grid, p, extent, t){
+      function wind_fn(grid, λ, φ, x, y, extent, t){
         var velocityScale = VELOCITY_SCALE;
            t = t || 0;
-          var wind = grid.interpolate(p[0], p[1], t);
+          var wind = grid.interpolate(λ, φ, t);
           if (wind) {
-            return distort(p[0], p[1], p[2], p[3], velocityScale, wind, extent);
+            return distort(λ, φ, x, y, velocityScale, wind, extent);
           }
           return NULL_WIND_VECTOR;
       }
@@ -237,9 +237,9 @@ var Windy = function( params ){
        */
       function field(grid, extent,x, y, t) {
           var column = columns[Math.round(x)];
-          var iy = Math.round(y);
-          if(column && column[iy]){
-            return wind_fn(grid, column[iy],extent,t);
+          var iy =  Math.round(y-bounds.y)*2;
+          if(column && !isNaN(column[0][iy])){
+            return wind_fn(grid, column[0][iy], column[0][iy+1], column[1][iy], column[1][iy+1],extent,t);
           }
           return NULL_WIND_VECTOR;
       }
@@ -321,25 +321,30 @@ var Windy = function( params ){
     var x = bounds.x;
 
     function interpolateColumn(x) {
-        var column = [];
-        for (var y = bounds.y; y <= bounds.yMax; y += 2) {
+      var ny = bounds.yMax - bounds.y + 1;
+        var column = [new Float64Array(ny*2).fill(NaN),new Uint16Array(ny*2).fill(NaN)];
+        for (var i = 0; i < ny; i++) {
+          var y = bounds.y + i;
                 var coord = invert( x, y, extent );
                 if (coord) {
                     var λ = coord[0], φ = coord[1];
-                    var xi = x;
                     if (isFinite(λ)) {
-                       column[y+1] = column[y] = [λ, φ, xi, y];
+                      var idx = i * 2;
+                      column[0][idx] = λ;
+                      column[0][idx+1] = φ;
+                      column[1][idx] = x;
+                      column[1][idx+1] = y;
                     }
                 }
         }
-        columns[x+1] = columns[x] = column;
+        columns[x] = column;
     }
 
     (function batchInterpolate() {
                 var start = Date.now();
                 while (x < bounds.width) {
                     interpolateColumn(x);
-                    x += 2;
+                    x += 1;
                     if ((Date.now() - start) > 1000) { //MAX_TASK_TIME) {
                         setTimeout(batchInterpolate, 25);
                         return;
@@ -363,7 +368,7 @@ var Windy = function( params ){
 
     function windIntensityColorScale(step, maxWind) {
 var alpha = 0.5;
-        var result = [
+        var result = params.windGradient || [
 "rgba(255, 253, 205, " + alpha + ")",
 "rgba(254, 252, 203, " + alpha + ")",
 "rgba(254, 250, 201, " + alpha + ")",
@@ -640,7 +645,8 @@ var alpha = 0.5;
     }
 
     //var fadeFillStyle = "rgba(0, 0, 0, 0.97)";
-    var fadeFillStyle = "rgba(0, 0, 0, 0.9)";
+    var fade_rate = 1.0 - (params.particle_fade || 0.05);
+    var fadeFillStyle = "rgba(0, 0, 0, "+fade_rate+")";
     var paintFillStyle = "rgba(0, 0, 0, 1.0)";
 
     var particles = [];
