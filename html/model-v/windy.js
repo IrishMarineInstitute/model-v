@@ -33,11 +33,15 @@ Date.prototype.toISOString2 = function() {
 }
 
 var Windy = function( params ){
-  var VELOCITY_SCALE = params.velocityScale || 0.011;             // scale for wind velocity (completely arbitrary--this value looks nice)
-  var MAX_WIND_INTENSITY = params.is_water ? 0.75 : 0.75;              // wind velocity at which particle intensity is maximum (m/s)
-  var INTENSITY_SCALE_STEP = MAX_WIND_INTENSITY/254;            // step size of particle intensity color scale
-  var MAX_PARTICLE_AGE = params.max_particle_age || 60; //100;                // max number of frames a particle is drawn before regeneration
-  var PARTICLE_LINE_WIDTH = 1;              // line width of a drawn particle
+  params.particles = params.particles || {};
+
+  var VELOCITY_SCALE = params.particles.velocity_scale || 0.011;             // scale for wind velocity (completely arbitrary--this value looks nice)
+  var MAX_VELOCITY = params.particles.max_velocity || 0.75;              // wind velocity at which particle intensity is maximum (m/s)
+  var MAX_PARTICLE_AGE = params.particles.max_frames || 60; //100;                // max number of frames a particle is drawn before regeneration
+  var PARTICLE_LINE_WIDTH = params.particles.width || 1;              // line width of a drawn particle
+  var PARTICLE_COUNT =  params.particles.count; // may be empty.
+  var PARTICLE_FADE = params.particles.fade || 0.05;
+
   var PARTICLE_MULTIPLIER = 1/100; //1/400;              // particle count scalar (completely arbitrary--this values looks nice)
   var PARTICLE_REDUCTION = 0.75;            // reduce particle count to this much of normal for mobile devices
   var FRAME_RATE = 20;                      // desired milliseconds per frame
@@ -366,7 +370,7 @@ var Windy = function( params ){
     function hexToB(h) {return parseInt((cutHex(h)).substring(4,6),16)}
     function cutHex(h) {return (h.charAt(0)=="#") ? h.substring(1,7):h}
 
-    function windIntensityColorScale(step, maxWind) {
+    function windIntensityColorScale(maxWind) {
 var alpha = 0.5;
         var result = params.windGradient || [
 "rgba(255, 253, 205, " + alpha + ")",
@@ -631,7 +635,7 @@ var alpha = 0.5;
         return result;
     }
 
-    var colorStyles = windIntensityColorScale(INTENSITY_SCALE_STEP, MAX_WIND_INTENSITY);
+    var colorStyles = windIntensityColorScale(MAX_VELOCITY);
     var buckets = colorStyles.map(function() { return []; });
     var etime = -1 * TIMELAPSE_LEAD_FRAMES;
     var start_time = start_date.getTime();
@@ -639,20 +643,20 @@ var alpha = 0.5;
     display_time.setTime(start_time);
     var duration = end_date.getTime()-start_date.getTime();
 
-    var particleCount = Math.round(bounds.width * bounds.height * PARTICLE_MULTIPLIER);
-    if (isMobile()) {
-      particleCount *= PARTICLE_REDUCTION;
-    }
 
     //var fadeFillStyle = "rgba(0, 0, 0, 0.97)";
-    var fade_rate = 1.0 - (params.particle_fade || 0.05);
+    var fade_rate = 1.0 - PARTICLE_FADE;
     var fadeFillStyle = "rgba(0, 0, 0, "+fade_rate+")";
     var paintFillStyle = "rgba(0, 0, 0, 1.0)";
 
     var particles = [];
-    for (var i = 0; i < particleCount; i++) {
-        particles.push(field.randomize(grid,{age: Math.floor(Math.random() * MAX_PARTICLE_AGE) + 0}));
-    }
+      var particleCount =  PARTICLE_COUNT || Math.round(bounds.width * bounds.height * PARTICLE_MULTIPLIER);
+      if (isMobile()) {
+        particleCount *= PARTICLE_REDUCTION;
+      }
+      for (var i = 0; i < particleCount; i++) {
+          particles.push(field.randomize(grid,{age: Math.floor(Math.random() * MAX_PARTICLE_AGE) + 0}));
+      }
 
     function evolve() {
       etime += TIMELAPSE_STEP;
@@ -750,7 +754,7 @@ var alpha = 0.5;
     })();
   }
 
-  var start = function( bounds, width, height, extent ){
+  var start = function( bounds, width, height, extent, args ){
     var mapBounds = {
       south: deg2rad(extent[0][1]),
       north: deg2rad(extent[1][1]),
@@ -759,8 +763,17 @@ var alpha = 0.5;
       width: width,
       height: height
     };
+    args = args || {};
+    args.particles = args.particles || {};
+     VELOCITY_SCALE = args.particles.velocity_scale || VELOCITY_SCALE;
+     MAX_VELOCITY = args.particles.max_velocity || MAX_VELOCITY;     
+     MAX_PARTICLE_AGE = args.particles.max_frames || MAX_PARTICLE_AGE;
+     PARTICLE_LINE_WIDTH = args.particles.width || PARTICLE_LINE_WIDTH;    
+     PARTICLE_COUNT =  args.particles.count || PARTICLE_COUNT;
+     PARTICLE_FADE = args.particles.fade || PARTICLE_FADE;
 
     stop();
+
 
     // build grid
     buildGrid( params.data, function(grid){

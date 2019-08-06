@@ -72,6 +72,8 @@
     <script src="windy.js"></script>
     <script src="netcdfjs.js"></script>
     <script src="d3-geo.min.js"></script>
+    <script src="d3-color.min.js"></script>
+    <script src="d3-interpolate.min.js"></script>
     <script src="https://js.arcgis.com/3.29compact/"></script>
     <script>
 
@@ -86,7 +88,6 @@
               img.src = src;
           });
         };
-
       var loadVelocityData = function(){
               return new Promise(function(resolve,reject){
                 var erddap = new ERDDAP(griddap.base_url);
@@ -126,6 +127,7 @@
       };
     </script>
     <script>
+           var default_particles = {velocity_scale: 0.015, frames: 80, width: 1, max_velocity: 0.75};
            var griddaps = [
             {
               id: 'IMI_CONN_2D',
@@ -149,6 +151,11 @@
                     return basemap;
 
              },
+              particles: {...default_particles, ...{
+                count: 3000,
+                frames: 100,
+                width: 2
+              }},
               max_times: 25
             },{
               id: 'IMI_NEATL',
@@ -174,12 +181,11 @@
               dataset_id: 'ncepRtofsG2DFore3hrlyProg',
               ux: 'u_velocity',
               uy: 'v_velocity',
-              velocityScale: 0.8,
               duration: '1 day',
               //constraints: {level: {eq: 1}},
               lat_stride: 8,
               lon_stride: 8,
-              max_times: 8
+              max_times: 9
             },{
               id: 'pufferfish_conn2d',
               type: "image",
@@ -192,14 +198,14 @@
               ux: 'barotropic_sea_water_x_velocity',
               uy: 'barotropic_sea_water_y_velocity',
               randomy: function(){(Math.acos(2*Math.random()-1))/Math.PI;},
-              velocityScale: 0.8,
+              particles :{"velocity_scale":0.025,"frames":100,"width":2,"max_velocity":0.75,"count":75000,"fade":0.002},
               duration: '1 day',
               lat_stride: 1,
               lon_stride: 1,
               max_times: 5
             }];
-        var hash = window.location.hash.substr(1);
-        var griddap = griddaps.find((x)=> x.id == hash) || griddaps[0];
+        var hash = window.location.hash.substr(1) || "";
+        var griddap = griddaps.find((x)=> x.id == hash || x.id == hash.split("&")[0]) || griddaps[0];
         console.log("using griddap "+griddap.id);
         var create_image = function(){
           // not using an ESRI map here.
@@ -214,36 +220,53 @@
             canvas.style.backgroundImage = "url('"+griddap.imageUrl+"')";
             document.getElementById("mapCanvas").appendChild(canvas)
             loadVelocityData(griddap).then(function(data){
-              var windyParams = griddap;
-              windyParams.canvas = canvas;
-              windyParams.data = data;
-              windyParams.is_water = true;
+              var windOptions = griddap;
+              windOptions.canvas = canvas;
+              windOptions.data = data;
               if(griddap.projection){
                 var projection = griddap.projection.scale(Math.min(map.width/ Math.PI, map.height/ Math.PI))
                               .center(griddap.center || [0, 0]).translate([map.width/2,map.height/2]);
 
-                  windyParams.project = function(lat,lon){ 
+                  windOptions.project = function(lat,lon){ 
                     return projection([lon,lat])
                   };
-                  windyParams.invert = function(x,y) { var a = projection.invert([x,y]); return a; [a[1],a[0]] }
+                  windOptions.invert = function(x,y) { var a = projection.invert([x,y]); return a; [a[1],a[0]] }
               }
-              
-              windlayers.push(new Windy(windyParams));
-               windlayers.forEach(function(windy){
-                windy.stop();
+
+            var particles = windOptions.particles || {};
+            windOptions.particles = {...default_particles, ...particles };
+
+               var hashParams = JSON.stringify({particles: windOptions.particles});
+               history.replaceState(null, null, document.location.pathname + '#' + hashParams);
+
+
+              windlayers.push(new Windy(windOptions));
+
+              var redrawImageMap = function(){
+                   windlayers.forEach(function(windy){
+                    windy.stop();
+                  });
+              var options = undefined;
+              try{
+                options = JSON.parse(decodeURIComponent(document.location.hash).substring(1));
+              }catch(e){
+                console.log("didn't parse any options from the url hash");
+              }
+
+              windlayers.forEach(function(layer){
+                setTimeout(function(windy){
+                  windy.start(
+                    [[0,0],[map.width, map.height]],
+                    map.width,
+                    map.height,
+                    [[extent.xmin, extent.ymin],[extent.xmax, extent.ymax]], options
+                  );
+                }.bind(null,layer),500);
               });
 
-          windlayers.forEach(function(layer){
-            setTimeout(function(windy){
-              windy.start(
-                [[0,0],[map.width, map.height]],
-                map.width,
-                map.height,
-                [[extent.xmin, extent.ymin],[extent.xmax, extent.ymax]]
-              );
-            }.bind(null,layer),500);
-          });
-
+              }
+              window.onhashchange = redrawImageMap;
+              redrawImageMap();
                 
                 console.log("woohoo");
 
@@ -278,7 +301,7 @@
               //topo map
 
         var mapoptions = {
-          basemap: griddap.basemap? griddap.basemap() : "oceans"
+          basemap: griddap.basemap? typeof(griddap.basemap) == "function" ? griddap.basemap() : griddap.basemap : "oceans"
         };
 
         if(griddap.extent){
@@ -308,7 +331,12 @@
             var canvas =  rasterLayer._element;
             var windOptions = griddap;
             windOptions.canvas = canvas;
-            windOptions.is_water = (windOptions.is_water === undefined)? true : windOptions.is_water;
+            var particles = windOptions.particles || {};
+            windOptions.particles = {...default_particles, ...particles };
+
+               var hashParams = JSON.stringify({particles: windOptions.particles});
+               history.replaceState(null, null, document.location.pathname + '#' + hashParams);
+              window.onhashchange = redrawesri;
 
             loadVelocityData(griddap).then(function(data){
               windOptions.data = data;
@@ -337,6 +365,13 @@
             windy.stop();
           });
 
+          var options = undefined;
+          try{
+            options = JSON.parse(decodeURIComponent(document.location.hash).substring(1));
+          }catch(e){
+            console.log("didn't parse any options from the url hash");
+          }
+
           var extent = map.geographicExtent;
           //console.log(extent);
           windlayers.forEach(function(layer){
@@ -345,7 +380,8 @@
                 [[0,0],[map.width, map.height]],
                 map.width,
                 map.height,
-                [[extent.xmin, extent.ymin],[extent.xmax, extent.ymax]]
+                [[extent.xmin, extent.ymin],[extent.xmax, extent.ymax]],
+                options
               );
             }.bind(null,layer),500);
           });
