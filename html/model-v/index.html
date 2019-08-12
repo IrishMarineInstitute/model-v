@@ -74,6 +74,7 @@
     <script src="d3-geo.min.js"></script>
     <script src="d3-color.min.js"></script>
     <script src="d3-interpolate.min.js"></script>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
     <script src="https://js.arcgis.com/3.29compact/"></script>
     <script>
 
@@ -88,6 +89,15 @@
               img.src = src;
           });
         };
+        var paletteToGradient = function(colorRange){
+            try{
+              var color = d3.scaleLinear().domain(colorRange.map((u,i)=>(i/(colorRange.length-1)*255))).range(colorRange);
+              return Array(256).fill(null).map((u, i) => color(i));
+            }catch(e){
+              console.log("problem with windPalette: "+e);
+            }
+            return undefined;
+        }
       var loadVelocityData = function(){
               return new Promise(function(resolve,reject){
                 var erddap = new ERDDAP(griddap.base_url);
@@ -151,12 +161,13 @@
                     return basemap;
 
              },
+             "windPalette":["rgb(0,21,47)","rgb(0,265,31)","rgb(206,69,9)","rgb(208,195,3)"],
               particles: {...default_particles, ...{
                 count: 3000,
                 frames: 100,
                 width: 2
               }},
-              max_times: 25
+              max_times: 2 //5
             },{
               id: 'IMI_NEATL',
               type: "map",
@@ -182,11 +193,12 @@
               ux: 'u_velocity',
               uy: 'v_velocity',
               duration: '1 day',
-              particles :{"velocity_scale":0.025,"frames":100,"width":2,"max_velocity":0.75,"count":75000,"fade":0.002},
+              windPalette:["rgb(0,21,47)","rgb(20,200,50)","rgb(206,69,9)","rgb(230,230,0)"],
+              particles:{"velocity_scale":0.3,"frames":60,"width":3,"max_velocity":1.25,"count":800000,"fade":0.002},
               //constraints: {level: {eq: 1}},
               lat_stride: 8,
               lon_stride: 8,
-              max_times: 9
+              max_times: 8
             },{
               id: 'pufferfish_conn2d',
               type: "image",
@@ -208,6 +220,9 @@
         var hash = window.location.hash.substr(1) || "";
         var griddap = griddaps.find((x)=> x.id == hash || x.id == hash.split("&")[0]) || griddaps[0];
         console.log("using griddap "+griddap.id);
+        if(griddap.windPalette && !griddap.windGradient){
+          griddap.windGradient = paletteToGradient(griddap.windPalette);
+        }
         var create_image = function(){
           // not using an ESRI map here.
            loadImage(griddap.imageUrl).then(
@@ -250,6 +265,9 @@
               var options = undefined;
               try{
                 options = JSON.parse(decodeURIComponent(document.location.hash).substring(1));
+                if(options.windPalette){
+                  options.windGradient = paletteToGradient(options.windPalette);
+                }
               }catch(e){
                 console.log("didn't parse any options from the url hash");
               }
@@ -369,6 +387,10 @@
           var options = undefined;
           try{
             options = JSON.parse(decodeURIComponent(document.location.hash).substring(1));
+            if(options.windPalette){
+              options.windGradient = paletteToGradient(options.windPalette);
+              console.log("gradient",options.windGradient);
+            }
           }catch(e){
             console.log("didn't parse any options from the url hash");
           }

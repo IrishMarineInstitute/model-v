@@ -41,6 +41,7 @@ var Windy = function( params ){
   var PARTICLE_LINE_WIDTH = params.particles.width || 1;              // line width of a drawn particle
   var PARTICLE_COUNT =  params.particles.count; // may be empty.
   var PARTICLE_FADE = params.particles.fade || 0.05;
+  var WIND_GRADIENT = params.windGradient || undefined;
 
   var PARTICLE_MULTIPLIER = 1/100; //1/400;              // particle count scalar (completely arbitrary--this values looks nice)
   var PARTICLE_REDUCTION = 0.75;            // reduce particle count to this much of normal for mobile devices
@@ -372,7 +373,7 @@ var Windy = function( params ){
 
     function windIntensityColorScale(maxWind) {
 var alpha = 0.5;
-        var result = params.windGradient || [
+        var result = WIND_GRADIENT || [
 "rgba(255, 253, 205, " + alpha + ")",
 "rgba(254, 252, 203, " + alpha + ")",
 "rgba(254, 250, 201, " + alpha + ")",
@@ -673,6 +674,10 @@ var alpha = 0.5;
         }
         var x = particle.x;
         var y = particle.y;
+        // re-use particles flowing across x-axis
+        if((x<bounds.x || x>bounds.x+bounds.width) || (y>= bounds.y && y <= bounds.height + bounds.y)){
+          particle.x = x = x<bounds.x?(bounds.x+bounds.width):bounds.x;
+        }
         var v = field(grid, extent, x, y, t);  // vector at current position and time
         var m = v[2];
         if (m === null) {
@@ -771,6 +776,7 @@ var alpha = 0.5;
      PARTICLE_LINE_WIDTH = args.particles.width || PARTICLE_LINE_WIDTH;    
      PARTICLE_COUNT =  args.particles.count || PARTICLE_COUNT;
      PARTICLE_FADE = args.particles.fade || PARTICLE_FADE;
+     WIND_GRADIENT = args.windGradient || WIND_GRADIENT;
 
     stop();
 
