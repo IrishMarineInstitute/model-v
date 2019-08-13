@@ -675,7 +675,7 @@ var alpha = 0.5;
         var x = particle.x;
         var y = particle.y;
         // re-use particles flowing across x-axis
-        if((x<bounds.x || x>bounds.x+bounds.width) || (y>= bounds.y && y <= bounds.height + bounds.y)){
+        if((x<bounds.x || x>bounds.x+bounds.width) && (y>= bounds.y && y <= bounds.height + bounds.y)){
           particle.x = x = x<bounds.x?(bounds.x+bounds.width):bounds.x;
         }
         var v = field(grid, extent, x, y, t);  // vector at current position and time
