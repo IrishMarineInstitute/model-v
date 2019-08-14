@@ -45,11 +45,11 @@ var Windy = function( params ){
 
   var PARTICLE_MULTIPLIER = 1/100; //1/400;              // particle count scalar (completely arbitrary--this values looks nice)
   var PARTICLE_REDUCTION = 0.75;            // reduce particle count to this much of normal for mobile devices
-  var FRAME_RATE = 20;                      // desired milliseconds per frame
+  var FRAME_RATE = 24;                      // desired milliseconds per frame
   var TIMELAPSE_FRAMES = 1440;
   var TIMELAPSE_STEP = 1;
-  var TIMELAPSE_LEAD_FRAMES = 60;
-  var TIMELAPSE_TRAIL_FRAMES = 60;
+  var TIMELAPSE_LEAD_FRAMES = 72;
+  var TIMELAPSE_TRAIL_FRAMES = 72;
 
   var NULL_WIND_VECTOR = [NaN, NaN, null];  // singleton for no wind in the form: [u, v, magnitude]
   var TRANSPARENT_BLACK = [255, 0, 0, 0];
@@ -196,6 +196,7 @@ var Windy = function( params ){
       var u = wind[0] * scale;
       var v = wind[1] * scale;
       var d = distortion(λ, φ, x, y, extent);
+      //if(Math.random()*100000<1) console.log("wind",wind[0],wind[1],wind[2]);
 
       // Scale distortion vectors by u and v, then add.
       wind[0] = d[0] * u + d[2] * v;
@@ -667,6 +668,8 @@ var alpha = 0.5;
       var t = etime<0?0:etime>=TIMELAPSE_FRAMES?TIMELAPSE_FRAMES-1:etime;
       display_time.setTime(start_time+(t/TIMELAPSE_FRAMES-1)*duration);
       buckets.forEach(function(bucket) { bucket.length = 0; });
+      var tm = 0;
+      var cm = 0;
       for(var i=particles.length-1;i>0;i--){
         var particle = particles[i];
         if (particle.age >= MAX_PARTICLE_AGE) {
@@ -692,6 +695,8 @@ var alpha = 0.5;
             particle.xt = xt;
             particle.yt = yt;
             buckets[colorStyles.indexFor(m)].push(particle);
+            tm += m;
+            cm++;
           }
           else {
             // Particle isn't visible, but it still moves through the field.

@@ -161,13 +161,13 @@
                     return basemap;
 
              },
-             "windPalette":["rgb(0,21,47)","rgb(0,265,31)","rgb(206,69,9)","rgb(208,195,3)"],
+             "windPalette":['#ffffcc','#ffeda0','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#b10026'],
               particles: {...default_particles, ...{
                 count: 3000,
                 frames: 100,
                 width: 2
               }},
-              max_times: 2 //5
+              max_times: 25
             },{
               id: 'IMI_NEATL',
               type: "map",
@@ -186,25 +186,25 @@
               type: "image",
               //TODO: support geotiff!!!!!
               extent: {xmin: -180, xmax: 180, ymin: -90, ymax: 90},
-              imageUrl: 'img/puffermap4096x2048.jpg',
+              imageUrl: 'img/puffermap2000x1000.jpg',
               projection: d3.geoEquirectangular(),
               base_url: 'https://coastwatch.pfeg.noaa.gov/erddap',
               dataset_id: 'ncepRtofsG2DFore3hrlyProg',
               ux: 'u_velocity',
               uy: 'v_velocity',
               duration: '1 day',
-              windPalette:["rgb(0,21,47)","rgb(20,200,50)","rgb(206,69,9)","rgb(230,230,0)"],
-              particles:{"velocity_scale":0.3,"frames":60,"width":3,"max_velocity":1.25,"count":800000,"fade":0.002},
-              //constraints: {level: {eq: 1}},
+              "particles":{"velocity_scale":0.5,"frames":60,"width":1.5,"max_velocity":1.25,"count":80000,"fade":0.002},
+              "windPalette":["#0d47a1","#1976d2","#42a5f5","#90caf9","#90caf9"],
+              //randomy: function(){(Math.acos(2*Math.random()-1))/Math.PI;},
               lat_stride: 8,
               lon_stride: 8,
-              max_times: 8
+              max_times: 1
             },{
               id: 'pufferfish_conn2d',
               type: "image",
               //TODO: support geotiff!!!!!
               extent: {xmin: -180, xmax: 180, ymin: -90, ymax: 90},
-              imageUrl: 'img/puffermap4096x2048.jpg',
+              imageUrl: 'img/World_LandColour_v1.jpg',
               projection: d3.geoEquirectangular(),
               base_url: 'https://erddap.marine.ie/erddap',
               dataset_id: 'IMI_CONN_2D',
