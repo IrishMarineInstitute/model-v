@@ -35,7 +35,7 @@ RUN cd x264 && ./configure --enable-static
 RUN cd x264 && make -j 8
 RUN cd x264 && make install
 
-RUN hg clone https://bitbucket.org/multicoreware/x265 
+RUN git clone https://github.com/videolan/x265
 RUN cd x265/build/linux && cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr ../../source
 RUN cd x265/build/linux && make -j 8
 RUN cd x265/build/linux && make install
@@ -51,7 +51,7 @@ RUN cd libvpx && ./configure --disable-examples
 RUN cd libvpx && make -j 8
 RUN cd libvpx && make install
 
-RUN git clone https://git.xiph.org/opus.git
+RUN git clone https://github.com/xiph/opus
 RUN cd opus && ./autogen.sh
 RUN cd opus && ./configure --disable-shared
 RUN cd opus && make -j 8
@@ -68,8 +68,8 @@ RUN cd ffmpeg && \
 RUN cd ffmpeg && make -j 8
 RUN cd ffmpeg && make install
 
-RUN git clone --depth 1 https://github.com/dgilman/aacgain.git
-RUN cd aacgain && ./build.sh
+# RUN git clone --depth 1 https://github.com/dgilman/aacgain.git
+# RUN cd aacgain &&  mkdir build && cmake -H. -Bbuild && cd build && make && make install
 
 RUN npm install -g phantomjs-prebuilt
 RUN apt-get update && apt-get install -y nginx
